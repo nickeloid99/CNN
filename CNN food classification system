@@ -1,0 +1,143 @@
+
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+#한식 리스트
+korean_images = list() # empty list
+for i in range(10):
+    file = "./korean/" + "img{0:02d}.jpg".format(i + 1)
+    img = cv2.imread(file)
+    if img is None:
+        print("파일이 없습니다.")
+        break
+    img = cv2.resize(img, (128, 128))
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    korean_images.append(img)
+
+def plot_images(n_row:int, n_col:int, images:list[np.ndarray]) -> None:
+    fig = plt.figure()
+    (fig, ax) = plt.subplots(n_row, n_col, figsize=(n_col, n_row))
+    for i in range(n_row):
+        for j in range(n_col):
+            axis = ax[i, j]
+            axis.get_xaxis().set_visible(False)
+            axis.get_yaxis().set_visible(False)
+            axis.imshow(images[i * n_col + j])
+    plt.show()
+    return None
+plot_images(n_row=2, n_col=5, images=korean_images)
+
+#일식 리스트
+japanese_images = list() # empty list
+for i in range(10):
+    file = "./japanese/" + "img{0:02d}.jpg".format(i + 1)
+    img = cv2.imread(file)
+    if img is None:
+        print("파일이 없습니다.")
+        break
+    img = cv2.resize(img, (128, 128))
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    japanese_images.append(img)
+
+plot_images(n_row=2, n_col=5, images=japanese_images)
+
+chinese_images = list()  # empty list
+for i in range(10):
+    file = "./chinese/" + "img{0:02d}.jpg".format(i + 1)
+    img = cv2.imread(file)
+    if img is None:
+        print("파일이 없습니다.")
+        break
+    img = cv2.resize(img, (128, 128))
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    chinese_images.append(img)
+
+plot_images(n_row=2, n_col=5, images=chinese_images)
+
+# X train data 만들기
+X = tf.Variable((korean_images) + (japanese_images) + (chinese_images))
+print(f"X shape {X.shape}")
+input()
+y = tf.Variable([[1, 0, 0]]*len(korean_images) + [[0, 1, 0]]*len(japanese_images)+[[0, 0, 1]]*len(chinese_images))
+print(f"y shape {y.shape}")
+input()
+
+print(f'정답 레이블 \r\n{y}')
+input()
+
+### CNN 만들기
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Conv2D(input_shape=(128, 128, 3), kernel_size=(3, 3), filters=32),
+    tf.keras.layers.MaxPooling2D((2, 2), strides=2),
+    tf.keras.layers.Conv2D(kernel_size=(3, 3), filters=32),
+    tf.keras.layers.MaxPooling2D((2, 2), strides=2),
+    tf.keras.layers.Conv2D(kernel_size=(3, 3), filters=32),
+    tf.keras.layers.MaxPooling2D((2, 2), strides=2),
+    tf.keras.layers.Conv2D(kernel_size=(3, 3), filters=32),
+    tf.keras.layers.MaxPooling2D((2, 2), strides=2),
+    tf.keras.layers.Conv2D(kernel_size=(3, 3), filters=32),
+    tf.keras.layers.Flatten(),
+    ## Neural Network
+    tf.keras.layers.Dense(units=512, activation='relu'),
+    tf.keras.layers.Dense(units=128, activation='relu'),
+    tf.keras.layers.Dense(units=64, activation='relu'),
+    tf.keras.layers.Dense(units=32, activation='relu'),
+    tf.keras.layers.Dense(units=3, activation='softmax'),
+])
+
+model.summary()
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+X = np.array(X)
+y = np.array(y)
+history = model.fit(x=X, y=y, epochs=5000)
+
+#테스트 리스트
+example_images = []
+for i in range(10):
+    file = "./example/" + "img{0:02d}.jpg".format(i + 1)
+    img = cv2.imread(file)
+    if img is None:
+        print("파일이 없습니다.")
+        break
+    img = cv2.resize(img, (128, 128))
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    example_images.append(img)
+
+example_images = np.array(example_images)
+predict_images = model.predict(example_images)
+print(predict_images)
+
+while True:
+    answers = input("1: korean / 2: japanese / 3: chinese / q: exit\n")
+    if answers.lower() == 'q':
+        break
+
+    try:
+        answers = int(answers)
+        if 1 <= answers <= 3:
+            fig, ax = plt.subplots(2, 5, figsize=(10, 4))
+            for i in range(2):
+                for j in range(5):
+                    idx = i * 5 + j
+                    #ax[i, j].imshow(example_images[idx])
+                    ax[i, j].axis('off')
+                    # 해당 음식 카테고리의 예측 값 확인 및 출력
+                    if answers == 1 and predict_images[idx][0] > 0.6:  # 한식
+                        ax[i, j].imshow(example_images[idx])
+                        #ax[i, j].set_title("Predicted: Korean")
+                    elif answers == 2 and predict_images[idx][1] > 0.6:  # 일식
+                        ax[i, j].imshow(example_images[idx])
+                        #ax[i, j].set_title("Predicted: Japanese")
+                    elif answers == 3 and predict_images[idx][2] > 0.6:  # 중식
+                        ax[i, j].imshow(example_images[idx])
+                        #ax[i, j].set_title("Predicted: Chinese")
+            plt.show()
+        else:
+            print("잘못된 입력입니다. 1, 2, 3 중 하나를 선택하세요.")
+    except ValueError:
+        print("잘못된 입력입니다. 숫자를 입력하세요.")
+
+
+plt.show()
+
